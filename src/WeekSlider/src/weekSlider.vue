@@ -15,8 +15,8 @@
                         @transitionend="onTransitionEnd(index)">
                         <div class="day" v-for="day in getDaies(item.date)">
                             <div
-								@click.stop="dayClickHandle(day.date)"
-								:style="buildDateStyle(day.isToday, day.isDay)">
+								@click.stop="dayClickHandle(day)"
+								:style="buildDateStyle(day.isToday, day.isDay, day.isDisabled)">
                                 {{day.week}}<br><strong>{{day.date.split('-')[2]}}</strong>
                             </div>
                         </div>
@@ -47,6 +47,10 @@ export default {
         todayBgColor: {
             type: String
         },
+        disabledTxtColor: {
+            type: String,
+            default: 'rgba(221, 221, 221, 1)'
+        },
         activeTxtColor: {
             type: String,
             default: 'rgba(255, 255, 255, 1)'
@@ -57,7 +61,13 @@ export default {
 		lang: {
 			type: String,
 			default: 'ch'
-		}
+        },
+        startdate: {
+            type: String
+        },
+        enddate: {
+            type: String
+        }
     },
     data () {
         return {
@@ -78,7 +88,7 @@ export default {
                 x: 0,
                 y: 0
             },
-            selecteddate:moment().format('YYYY-MM-DD'),
+            selecteddate: moment().format('YYYY-MM-DD'),
 			sliderWidth: 0,
 			weekLanguages: {
 				ch: ['日', '一', '二', '三', '四', '五', '六'],
@@ -87,11 +97,8 @@ export default {
         }
     },
     watch: {
-        dates: {
-            handler: function (newVal, oldVal) {
-                this.yearMonthStr = moment(newVal[1].date).format('YYYY-MM')
-            },
-            deep: true
+        activeIndex(val){
+            this.yearMonthStr = moment(this.dates[val].date).format('YYYY-MM')
         }
 	},
 	computed: {
@@ -107,7 +114,9 @@ export default {
     },
     created () {
         let vm = this
-        this.dates.push(
+        vm.selecteddate = vm.defaultDate
+        vm.yearMonthStr = moment(vm.defaultDate).format('YYYY-MM')
+        vm.dates.push(
             {
                 date: moment(vm.defaultDate).subtract(7, 'd').format('YYYY-MM-DD'),
             },
@@ -135,11 +144,23 @@ export default {
             }
             for (var i = 0; i < 7; i++) {
                 let _theDate = moment(date).subtract(weekOfDate - i, 'd')
+                let _disabled = false;
+                if(vm.startdate){
+                    if(_theDate < moment(vm.startdate)){
+                        _disabled = true;
+                    }
+                }
+                if(vm.enddate){
+                    if(_theDate > moment(vm.enddate)){
+                        _disabled = true;
+                    }
+                }
                 arr.push({
                     date: _theDate.format('YYYY-MM-DD'),
                     week: weeks[i],
                     isToday: _theDate.format('YYYY-MM-DD') === today.format('YYYY-MM-DD'),
-                    isDay: _theDate.format('YYYY-MM-DD')===vm.selecteddate//_theDate.format('E') === defaultDay.format('E')
+                    isDay: _theDate.format('YYYY-MM-DD') === vm.selecteddate,
+                    isDisabled: _disabled
                 })
             }
             return arr
@@ -188,12 +209,19 @@ export default {
             vm.distan.x = vm.end.x - vm.start.x
             vm.distan.y = vm.end.y - vm.start.y
             let dom = vm.distan.x < 0 ? this.$refs.sliders.children[2] : this.$refs.sliders.children[0]
-            if (vm.distan.x < 0) {
-                dom.style['transform'] = 'translateX('+ (vm.sliderWidth + vm.distan.x) +'px)'
-            }else {
-                dom.style['transform'] = 'translateX('+ (-vm.sliderWidth + vm.distan.x) +'px)'
+            if(vm.activeIndex === 0){
+                dom = vm.distan.x < 0 ? this.$refs.sliders.children[1] : this.$refs.sliders.children[0]
             }
-
+            else if(vm.activeIndex === 2){
+                dom = vm.distan.x < 0 ? this.$refs.sliders.children[2] : this.$refs.sliders.children[1]
+            }
+            else{
+                if (vm.distan.x < 0) {
+                    dom.style['transform'] = 'translateX('+ (vm.sliderWidth + vm.distan.x) +'px)'
+                }else {
+                    dom.style['transform'] = 'translateX('+ (-vm.sliderWidth + vm.distan.x) +'px)'
+                }
+            }
         },
 
         /**
@@ -210,10 +238,19 @@ export default {
 
             vm.getTouchDirection(vm.distan.x, vm.distan.y)
             if (vm.direction === 'left') {
-                vm.activeIndex = 2
+                if(vm.activeIndex === 0){
+                    vm.activeIndex = 1	
+                }
+                else{
+                    vm.activeIndex = 2
+                }
             } else if (vm.direction === 'right') {
-                vm.activeIndex = 0
-
+                if(vm.activeIndex === 2){
+                    vm.activeIndex = 1	
+                }
+                else{
+                    vm.activeIndex = 0
+                }
             } else {
                 // for (var i = 0; i < this.$refs.sliders.children.length; i++) {
                 //     this.$refs.sliders.children[i].style['transform'] = 'translateX('+ (i*100 - 100) +'%)'
@@ -228,12 +265,35 @@ export default {
             let vm = this
             vm.isAnimation = false
             if (index === 1 && this.activeIndex === 2) {
+                if(vm.enddate){
+                    let enddate = moment(vm.dates[vm.activeIndex].date).add(7, 'd')
+                    let weekOfDate = Number(moment(enddate).format('E'))
+                    if (weekOfDate === 7) {
+                        weekOfDate = 0
+                    }
+                    enddate = moment(enddate).subtract(weekOfDate, 'd')
+                    if(enddate > moment(vm.enddate)){
+                        return false;
+                    }
+                }
                 vm.dates.push({
                     date: moment(vm.dates[vm.activeIndex].date).add(7, 'd').format('YYYY-MM-DD')
                 })
                 vm.dates.shift()
                 vm.activeIndex = 1
             }else if (index === 1 && this.activeIndex === 0) {
+                if(vm.startdate){
+                    let startdate = moment(vm.dates[vm.activeIndex].date).subtract(7, 'd')
+                    let weekOfDate = Number(moment(startdate).format('E'))
+                    if (weekOfDate === 7) {
+                        weekOfDate = 0
+                    }
+                    startdate = moment(startdate).subtract(weekOfDate - 6, 'd')
+                    if(startdate < moment(vm.startdate)){
+                        return false;
+                    }
+                }
+                
                 vm.dates.unshift({
                     date: moment(vm.dates[vm.activeIndex].date).subtract(7, 'd').format('YYYY-MM-DD')
                 })
@@ -264,16 +324,19 @@ export default {
             }
         },
 
-        dayClickHandle (date) {
-            this.selecteddate=date;
-            this.$emit('dateClick', date)
-            this.$emit('update:defaultDate', date)
-		},
+        dayClickHandle (day) {
+            if(!day.isDisabled){
+                day.isDay = true;
+                this.selecteddate = day.date;
+                this.$emit('dateClick', day.date)
+                this.$emit('update:defaultDate', day.date)
+            }
+        },
 
 		/**
 		 *生成日期样式
 		 */
-		buildDateStyle (isToday, isActive) {
+		buildDateStyle (isToday, isActive, isDisabled) {
 			let vm = this
 			let res = {}
 
@@ -285,7 +348,12 @@ export default {
 			if (isActive) {
 				res.color = vm.activeTxtColor || ''
 				res.backgroundColor = vm.activeBgColor || ''
-			}
+            }
+            
+            if(isDisabled){
+                res.color = vm.disabledTxtColor || ''
+				res.backgroundColor = ''
+            }
 
 			return res
 		}
