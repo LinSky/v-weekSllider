@@ -215,12 +215,10 @@ export default {
             else if(vm.activeIndex === 2){
                 dom = vm.distan.x < 0 ? this.$refs.sliders.children[2] : this.$refs.sliders.children[1]
             }
-            else{
-                if (vm.distan.x < 0) {
-                    dom.style['transform'] = 'translateX('+ (vm.sliderWidth + vm.distan.x) +'px)'
-                }else {
-                    dom.style['transform'] = 'translateX('+ (-vm.sliderWidth + vm.distan.x) +'px)'
-                }
+            if (vm.distan.x < 0) {
+                dom.style['transform'] = 'translateX('+ (vm.sliderWidth + vm.distan.x) +'px)'
+            }else {
+                dom.style['transform'] = 'translateX('+ (-vm.sliderWidth + vm.distan.x) +'px)'
             }
         },
 
@@ -323,7 +321,6 @@ export default {
                 }
             }
         },
-
         dayClickHandle (day) {
             if(!day.isDisabled){
                 day.isDay = true;
@@ -354,7 +351,6 @@ export default {
                 res.color = vm.disabledTxtColor || ''
 				res.backgroundColor = ''
             }
-
 			return res
 		}
     }
